@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} Study Chatbot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;800&family=Literata:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    :root {
+      --accent: {{ theme.accent }};
+      --on-accent: #ffffff;
+      --page: #f3f5f9;
+      --surface: #ffffff;
+      --ink: #171b25;
+      --muted: #59627a;
+      --line: #dde2ec;
+      --danger: #c62828;
+      --accent-ink: var(--accent);
+      --grid: color-mix(in srgb, var(--accent) 12%, transparent);
+      --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+      --reading: "Literata", Georgia, "Times New Roman", serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --page: #0e1016;
+        --surface: #171a23;
+        --ink: #eceff6;
+        --muted: #9aa3b8;
+        --line: #2a2f3d;
+        --danger: #ef7373;
+        --accent-ink: color-mix(in srgb, var(--accent) 45%, white);
+        --grid: color-mix(in srgb, var(--accent) 24%, transparent);
+      }
+    }
+
+    html, body { height: 100%; margin: 0; }
+
+    body {
+      background: var(--page);
+      color: var(--ink);
+      font-family: var(--reading);
+      font-size: 1.0625rem;
+      line-height: 1.65;
+    }
+
+    button, textarea { font: inherit; color: inherit; }
+
+    :focus-visible { outline: 2.5px solid var(--accent-ink); outline-offset: 3px; }
+
+    .app {
+      display: grid;
+      grid-template-columns: clamp(17.5rem, 32vw, 28rem) 1fr;
+      height: 100dvh;
+    }
+
+    .cover {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 2rem;
+      padding: 2.75rem 2rem 2.25rem;
+      overflow: hidden;
+      background: var(--accent);
+      color: var(--on-accent);
+    }
+
+    .cover :focus-visible { outline-color: var(--on-accent); }
+
+    .cover-top, .scope { position: relative; z-index: 1; }
+
+    .mark { display: none; font-size: 1.6rem; line-height: 1; }
+
+    .cover h1 {
+      margin: 0 0 1rem;
+      font-family: var(--display);
+      font-weight: 800;
+      font-size: clamp(1.75rem, 3.2vw, 2.75rem);
+      line-height: 0.98;
+      letter-spacing: -0.035em;
+      overflow-wrap: break-word;
+      hyphens: auto;
+    }
+
+    .tagline { margin: 0 0 1.75rem; max-width: 22rem; font-size: 1.05rem; line-height: 1.5; }
+
+    .new-chat {
+      padding: 0.55rem 1.15rem;
+      border: 1.5px solid rgba(255, 255, 255, 0.75);
+      border-radius: 999px;
+      background: transparent;
+      font-family: var(--display);
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .new-chat:hover { background: var(--on-accent); color: var(--accent); }
+
+    .scope { margin: 0; max-width: 20rem; font-size: 0.92rem; line-height: 1.5; }
+
+    .watermark {
+      position: absolute;
+      right: -1rem;
+      bottom: -3rem;
+      font-size: 14rem;
+      line-height: 1;
+      opacity: 0.15;
+      filter: brightness(0) invert(1);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .desk { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+
+    .pattern-grid {
+      background-image:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+
+    .pattern-dots {
+      background-image: radial-gradient(circle, var(--grid) 1.5px, transparent 1.7px);
+      background-size: 24px 24px;
+    }
+
+    .pattern-lines {
+      background-image: repeating-linear-gradient(
+        to bottom, transparent 0, transparent 31px, var(--grid) 31px, var(--grid) 32px
+      );
+    }
+
+    .chat { flex: 1; overflow-y: auto; padding: 2.5rem 1.5rem 1rem; scroll-behavior: smooth; }
+
+    .thread {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      max-width: 46rem;
+      margin: 0 auto;
+    }
+
+    .welcome h2 {
+      max-width: 30rem;
+      margin: 2vh 0 1.5rem;
+      font-family: var(--display);
+      font-weight: 800;
+      font-size: clamp(1.9rem, 4vw, 2.75rem);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    .starters {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface);
+    }
+
+    .starter {
+      display: block;
+      width: 100%;
+      padding: 0.95rem 1.25rem;
+      border: 0;
+      border-top: 1px solid var(--line);
+      background: transparent;
+      text-align: left;
+      line-height: 1.45;
+      cursor: pointer;
+    }
+
+    .starter:first-child { border-top: 0; }
+
+    .starter:hover, .starter:focus-visible {
+      background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+      box-shadow: inset 4px 0 0 var(--accent);
+      outline-offset: -3px;
+    }
+
+    .message { overflow-wrap: anywhere; }
+
+    .message.user {
+      align-self: flex-end;
+      max-width: 85%;
+      padding: 0.65rem 1.1rem;
+      border-radius: 1.25rem 1.25rem 0.3rem 1.25rem;
+      background: var(--accent);
+      color: var(--on-accent);
+      white-space: pre-wrap;
+    }
+
+    .message.model, .message.error, .typing {
+      align-self: stretch;
+      padding: 1rem 1.25rem;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent);
+      border-radius: 0.3rem 1rem 1rem 0.3rem;
+      background: var(--surface);
+    }
+
+    .message.error {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .message.model > :first-child { margin-top: 0; }
+    .message.model > :last-child { margin-bottom: 0; }
+    .message p { margin: 0 0 0.8rem; }
+    .message ul, .message ol { margin: 0 0 0.8rem; padding-left: 1.4rem; }
+    .message li { margin-bottom: 0.3rem; }
+
+    .message h4 {
+      margin: 1.1rem 0 0.4rem;
+      font-family: var(--display);
+      font-weight: 800;
+      font-size: 1.1rem;
+      letter-spacing: -0.01em;
+      color: var(--accent-ink);
+    }
+
+    .message code {
+      padding: 0.1em 0.35em;
+      border-radius: 4px;
+      background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.88em;
+    }
+
+    .message pre {
+      margin: 0 0 0.9rem;
+      padding: 0.9rem 1rem;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #12151c;
+      color: #e8ebf3;
+      line-height: 1.5;
+    }
+
+    .message pre code { padding: 0; background: none; color: inherit; }
+
+    .typing { display: flex; gap: 0.35rem; align-self: flex-start; padding: 0.95rem 1.1rem; }
+
+    .typing span {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+      background: var(--accent-ink);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    .typing span:nth-child(2) { animation-delay: 0.15s; }
+    .typing span:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.25; transform: translateY(0); }
+      50% { opacity: 1; transform: translateY(-3px); }
+    }
+
+    .composer {
+      display: flex;
+      align-items: flex-end;
+      gap: 0.6rem;
+      width: calc(100% - 3rem);
+      max-width: 46rem;
+      margin: 0 auto 1.25rem;
+      padding: 0.45rem 0.45rem 0.45rem 1.1rem;
+      border: 1.5px solid var(--line);
+      border-radius: 1.5rem;
+      background: var(--surface);
+    }
+
+    .composer:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+    }
+
+    .composer textarea {
+      flex: 1;
+      max-height: 10rem;
+      padding: 0.55rem 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      resize: none;
+      line-height: 1.5;
+    }
+
+    .composer textarea::placeholder { color: var(--muted); }
+
+    .send {
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      width: 2.6rem;
+      height: 2.6rem;
+      border: 0;
+      border-radius: 50%;
+      background: var(--accent);
+      color: var(--on-accent);
+      cursor: pointer;
+    }
+
+    .send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .cover { padding: 0.8rem 1rem; }
+      .cover-top { display: flex; align-items: center; gap: 0.75rem; }
+      .mark { display: block; }
+      .cover h1 { flex: 1; min-width: 0; margin: 0; font-size: 1.2rem; line-height: 1.1; letter-spacing: -0.02em; }
+      .tagline, .scope, .watermark { display: none; }
+      .new-chat { padding: 0.4rem 0.9rem; font-size: 0.92rem; }
+      .chat { padding: 1.5rem 1rem 0.75rem; }
+      .composer { width: calc(100% - 2rem); margin-bottom: 0.75rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .chat { scroll-behavior: auto; }
+      .typing span { animation: none; opacity: 0.7; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="cover">
+      <div class="cover-top">
+        <span class="mark" aria-hidden="true">{{ icon }}</span>
+        <h1>{{ title }}</h1>
+        <p class="tagline">{{ tagline }}</p>
+        <button type="button" class="new-chat" id="new-chat">New chat</button>
+      </div>
+      <p class="scope">This chatbot answers {{ title }} questions only. Anything else is politely declined.</p>
+      <span class="watermark" aria-hidden="true">{{ icon }}</span>
+    </aside>
+
+    <main class="desk pattern-{{ theme.pattern }}">
+      <div class="chat" id="chat">
+        <div class="thread" id="thread" aria-live="polite">
+          <section class="welcome" id="welcome">
+            <h2>What are we studying in {{ title }}?</h2>
+            <div class="starters">
+              {% for question in suggestions %}
+              <button type="button" class="starter">{{ question }}</button>
+              {% endfor %}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <form class="composer" id="composer">
+        <textarea id="message" rows="1" maxlength="2000" placeholder="Ask your {{ title }} question" aria-label="Your question"></textarea>
+        <button type="submit" class="send" id="send" aria-label="Send question">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 19V5"></path>
+            <path d="M5 12l7-7 7 7"></path>
+          </svg>
+        </button>
+      </form>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      const chat = document.getElementById("chat");
+      const thread = document.getElementById("thread");
+      const welcome = document.getElementById("welcome");
+      const form = document.getElementById("composer");
+      const input = document.getElementById("message");
+      const sendButton = document.getElementById("send");
+      const newChatButton = document.getElementById("new-chat");
+
+      let history = [];
+      let busy = false;
+      let session = 0;
+
+      function escapeHtml(text) {
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+
+      function inline(text) {
+        return text
+          .split(/(`[^`]+`)/g)
+          .map(function (part, index) {
+            if (index % 2) return "<code>" + part.slice(1, -1) + "</code>";
+            return part
+              .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+              .replace(/\*([^\s*][^*]*?)\*/g, "<em>$1</em>");
+          })
+          .join("");
+      }
+
+      function renderMarkdown(source) {
+        const codeBlocks = [];
+        const text = escapeHtml(source).replace(/```[\w-]*\n?([\s\S]*?)```/g, function (_, code) {
+          codeBlocks.push("<pre><code>" + code.replace(/\n$/, "") + "</code></pre>");
+          return "\u0000" + (codeBlocks.length - 1) + "\u0000";
+        });
+
+        let html = "";
+        let listType = null;
+
+        function closeList() {
+          if (listType) {
+            html += "</" + listType + ">";
+            listType = null;
+          }
+        }
+
+        function openList(type) {
+          if (listType !== type) {
+            closeList();
+            html += "<" + type + ">";
+            listType = type;
+          }
+        }
+
+        text.split("\n").forEach(function (line) {
+          const trimmed = line.trim();
+          let match;
+
+          if (!trimmed) return;
+
+          if (/^\u0000\d+\u0000$/.test(trimmed)) {
+            closeList();
+            html += trimmed;
+          } else if ((match = line.match(/^#{1,6}\s+(.*)/))) {
+            closeList();
+            html += "<h4>" + inline(match[1]) + "</h4>";
+          } else if ((match = line.match(/^\s*[-*+]\s+(.*)/))) {
+            openList("ul");
+            html += "<li>" + inline(match[1]) + "</li>";
+          } else if ((match = line.match(/^\s*\d+[.)]\s+(.*)/))) {
+            openList("ol");
+            html += "<li>" + inline(match[1]) + "</li>";
+          } else {
+            closeList();
+            html += "<p>" + inline(line) + "</p>";
+          }
+        });
+
+        closeList();
+        return html.replace(/\u0000(\d+)\u0000/g, function (_, index) {
+          return codeBlocks[index];
+        });
+      }
+
+      function scrollToEnd() {
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+      function addMessage(type, text) {
+        const message = document.createElement("div");
+        message.className = "message " + type;
+        if (type === "model") {
+          message.innerHTML = renderMarkdown(text);
+        } else {
+          message.textContent = text;
+        }
+        thread.appendChild(message);
+        scrollToEnd();
+      }
+
+      function addTyping() {
+        const typing = document.createElement("div");
+        typing.className = "typing";
+        typing.setAttribute("role", "status");
+        typing.setAttribute("aria-label", "Writing an answer");
+        typing.innerHTML = "<span></span><span></span><span></span>";
+        thread.appendChild(typing);
+        scrollToEnd();
+        return typing;
+      }
+
+      function resizeInput() {
+        input.style.height = "auto";
+        input.style.height = Math.min(input.scrollHeight, 160) + "px";
+      }
+
+      function setBusy(value) {
+        busy = value;
+        sendButton.disabled = value;
+      }
+
+      async function send(rawText) {
+        const text = rawText.trim();
+        if (!text || busy) return;
+
+        const currentSession = session;
+        setBusy(true);
+        welcome.hidden = true;
+        addMessage("user", text);
+        input.value = "";
+        resizeInput();
+        const typing = addTyping();
+
+        try {
+          const response = await fetch("/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: text, history: history })
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Something went wrong. Please try again.");
+
+          if (currentSession !== session) return;
+          typing.remove();
+          addMessage("model", data.reply);
+          history.push({ role: "user", text: text }, { role: "model", text: data.reply });
+        } catch (error) {
+          if (currentSession !== session) return;
+          typing.remove();
+          addMessage(
+            "error",
+            error instanceof TypeError
+              ? "Cannot reach the server. Check your connection and send your question again."
+              : error.message
+          );
+        } finally {
+          if (currentSession === session) {
+            setBusy(false);
+            input.focus();
+          }
+        }
+      }
+
+      function startNewChat() {
+        session += 1;
+        history = [];
+        setBusy(false);
+        thread.querySelectorAll(".message, .typing").forEach(function (element) {
+          element.remove();
+        });
+        welcome.hidden = false;
+        input.value = "";
+        resizeInput();
+        chat.scrollTop = 0;
+        input.focus();
+      }
+
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        send(input.value);
+      });
+
+      input.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+          event.preventDefault();
+          send(input.value);
+        }
+      });
+
+      input.addEventListener("input", resizeInput);
+
+      document.querySelectorAll(".starter").forEach(function (button) {
+        button.addEventListener("click", function () {
+          send(button.textContent);
+        });
+      });
+
+      newChatButton.addEventListener("click", startNewChat);
+    })();
+  </script>
+</body>
+</html>
